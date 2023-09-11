@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>IoT Battery Data</title>
+    <style>
+        th {
+            background-color: grey;
+            color: white;
+        }
+
+        tbody {
+            background-color: white;
+        }
+
+        body {
+            font-size: 14px;
+            background-color: white;
+        }
+
+        table {
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>IoT Battery Data</h1>
+    <p id="accessToken"></p>
+    <div id="evhcleBatteryData"></div>
+    <div id="moresharingBatteryData"></div>
+
+    <script>
+        const clientId = "2znuymhuuvyoci8o";
+        const secretKey = "ifj3r0bnsxk9zlxlraektze6hnrue383";
+        const accessTokenElement = document.getElementById("accessToken");
+        const evhcleBatteryDataElement = document.getElementById("evhcleBatteryData");
+        const moresharingBatteryDataElement = document.getElementById("moresharingBatteryData");
+
+        const evhcleLockIds = [
+            "867604059768961",
+            "867604059727942",
+            "867604059790635",
+            "868963046523551",
+            "868963046282968",
+            "868963046539755",
+            "868963046330106",
+            "868963046538294",
+            "868963046528501",
+            "867198054997683",
+            "868963046291928",
+            "868963046538344",
+            "868963046330908",
+            "862090050173499"
+        ];
+
+        const moresharingLockIds = [
+            "868963046314811",
+            "868963046291837",
+            "867604059790759",
+            "868963046302063",
+            "868963046284535",
+            "868963046291852",
+            "867604059751546",
+            "867604059823550",
+            "860537061046025",
+            "860537061010690",
+            "860537061045142",
+            "860537061007647",
+            "860537061040457",
+            "860537061030987",
+            "860537061044434",
+            "860537061434247",
+            "860537061013553",
+            "860537061040721",
+            "860537061039822",
+            "860537061011169",
+            "860537061044491",
+            "860537061037867",
+            "860537061031571",
+            "860537061048500",
+            "860537061040622",
+            "860537061011771",
+            "860537061011961",
+            "860537061034781",
+            "860537061036679",
+            "860537061011193",
+            "860537061028379",
+            "860537061040499",
+            "860537061043667",
+            "868963046302469",
+            "868963046538435",
+            "868963046309100",
+            "868963046529327",
+            "867604059823592",
+            "868963046528295",
+            "868963046324026",
+            "868963046328936",
+            "868963046538443",
+            "868963046525960"
+        ];
+
+        async function fetchData(lockId) {
+            try {
+                const authResponse = await fetch("https://api.sentinel-tec.com/api/v4/auth/token", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                    body: new URLSearchParams({ clientId, secretKey }),
+                });
+
+                const authData = await authResponse.json();
+
+                if (authResponse.ok && authData.body && authData.body.accessToken) {
+                    // Fetch Battery Data for the given lock ID
+                    const queryResponse = await fetch("https://api.sentinel-tec.com/api/v4/lock/query", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/x-www-form-urlencoded",
+                            "Authorization": authData.body.accessToken,
+                        },
+                        body: new URLSearchParams({ lockId }),
+                    });
+
+                    const queryData = await queryResponse.json();
+
+                    if (queryResponse.ok) {
+                        return queryData;
+                    } else {
+                        console.error(`Failed to fetch battery data for Lock ID: ${lockId}`);
+                        return null;
+                    }
+                } else {
+                    console.error("Authentication failed.");
+                    return null;
+                }
+            } catch (error) {
+                console.error("Error occurred during authentication:", error);
+                return null;
+            }
+        }
+
+        async function displayData() {
+    try {
+        evhcleBatteryDataElement.innerHTML = ""; // Clear previous content
+        moresharingBatteryDataElement.innerHTML = "";
+
+        const evhcleTable = createTable("EVHCLE Battery Data");
+        const moresharingTable = createTable("MORESHARING Battery Data");
+
+        // Use Promise.all to fetch data for EVHCLE Devices in parallel
+        const evhclePromises = evhcleLockIds.map(async (lockId) => {
+            const queryData = await fetchData(lockId);
+            if (queryData) {
+                displayTableRow(evhcleTable, queryData.body);
+            }
+        });
+
+        // Use Promise.all to fetch data for MORESHARING Devices in parallel
+        const moresharingPromises = moresharingLockIds.map(async (lockId) => {
+            const queryData = await fetchData(lockId);
+            if (queryData) {
+                displayTableRow(moresharingTable, queryData.body);
+            }
+        });
+
+        // Wait for all promises to complete
+        await Promise.all([...evhclePromises, ...moresharingPromises]);
+
+        // Append tables to the respective elements
+        evhcleBatteryDataElement.appendChild(evhcleTable);
+        moresharingBatteryDataElement.appendChild(moresharingTable);
+    } catch (error) {
+        console.error("Error:", error);
+    }
+}
+
+
+            function createTable(tableCaption) {
+                const table = document.createElement("table");
+                table.border = "1"; // Add border for the table (optional)
+
+                // Create table caption (title)
+                const caption = document.createElement("caption");
+                caption.textContent = tableCaption;
+                table.appendChild(caption);
+
+                // Create table header (thead)
+                const thead = document.createElement("thead");
+                const headerRow = document.createElement("tr");
+
+                // Create table data cells for the header
+                const headers = ["Lock ID", "Hardware Version", "Firmware Version", "Sbox Function", "Sbox Connection Status" ,"IOT Battery", "Fuel Level"];
+
+                headers.forEach(headerText => {
+                    const headerCell = document.createElement("th");
+                    headerCell.textContent = headerText;
+                    headerRow.appendChild(headerCell);
+                });
+
+                thead.appendChild(headerRow);
+                table.appendChild(thead);
+
+                return table;
+            }
+
+            function displayTableRow(table, data) {
+    let tbody = table.querySelector("tbody");
+    if (!tbody) {
+        tbody = document.createElement("tbody");
+        table.appendChild(tbody);
+    }
+
+    const dataRow = document.createElement("tr");
+    const values = [
+        data.lockId,
+
+        data.hardwareVersion,
+        data.firmwareVersion,
+
+        data.sboxFunction,
+        data.sboxConnectionStatus,
+		  data.voltagePercentage,
+		  data.powerVoltagePercentage
+    ];
+
+    values.forEach(dataValue => {
+        const dataCell = document.createElement("td");
+        dataCell.textContent = dataValue;
+        dataRow.appendChild(dataCell);
+    });
+
+    tbody.appendChild(dataRow);
+}
+
+            // Call the displayData function to fetch and display the data
+            displayData();
+    </script>
+</body>
+</html>
